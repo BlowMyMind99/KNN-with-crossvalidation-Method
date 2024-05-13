@@ -20,11 +20,12 @@ import csv
 # ----------------------------------------------------------------------------------------------------------------------
 # 2. Define classes and methods
 
+# 2.1 Define the KNN Classifier class
 class KNNClassifier:
     def __init__(self, k):
-        self.k = k
-        self.x_train = None
-        self.y_train = None
+        self.k = k              # Initialize the K parameter
+        self.x_train = None     # Initialize the training data
+        self.y_train = None     # Initialize the training labels
 
     # Method to load a csv file
     def load_csv_file(self, filename):
@@ -35,10 +36,10 @@ class KNNClassifier:
                 dataset = list(csv_reader)
             return dataset
         except FileNotFoundError:
-            print(f"Die Datei '{filename}' wurde nicht gefunden.")
+            print(f"Die Datei '{filename}' wurde nicht gefunden.")              # Error handling for file not found
             return None
         except Exception as e:
-            print(f"Ein Fehler ist aufgetreten beim Lesen der Datei: {e}")
+            print(f"Ein Fehler ist aufgetreten beim Lesen der Datei: {e}")      # Error handling for other exceptions
             return None
 
     # Method to split the dataset into training and testing sets
@@ -100,9 +101,10 @@ class KNNClassifier:
         mean_accuracy = np.mean(current_accuracies)
         return mean_accuracy
 
+# 2.2 Define the Plot class
 class Plot:
     def __init__(self, classifier):
-        self.classifier = classifier
+        self.classifier = classifier        # Composition of the KNN Classifier class to access the predict method
 
     # Method to plot the accuracy of the KNN Classifier for different k
     def plot_accuracy(self, k_range, accuracy):
@@ -149,10 +151,11 @@ class Plot:
         plt.tight_layout()
         plt.show()
 
+# 2.3 Define the HomeScreen class
 class HomeScreen:
     def __init__(self, classifier, plotter):
-        self.classifier = classifier
-        self.plotter = plotter
+        self.classifier = classifier            # Composition of the KNN Classifier and Plot classes
+        self.plotter = plotter                  # to access their methods in the HomeScreen class
 
     # Method to display the welcome message and return the selected option
     def welcome_message(self):
@@ -168,17 +171,17 @@ class HomeScreen:
     def run_classifier(self, dataset):
         k = self.get_integer_input('Enter the value of k: ')
         self.classifier.k = k  # Update the k value in classifier
-        train_set, test_set = self.classifier.split_data(dataset, train_ratio=0.7)
-        x_train, y_train = self.classifier.convert_to_numpy_arrays(train_set)
+        train_set, test_set = self.classifier.split_data(dataset, train_ratio=0.7)      # Split the dataset
+        x_train, y_train = self.classifier.convert_to_numpy_arrays(train_set)           # Convert to numpy arrays
         x_test, y_test = self.classifier.convert_to_numpy_arrays(test_set)
-        self.classifier.train_data(x_train, y_train)
-        accuracy = self.classifier.calculate_accuracy(x_test, y_test)
+        self.classifier.train_data(x_train, y_train)                                    # Normalize the training data
+        accuracy = self.classifier.calculate_accuracy(x_test, y_test)                   # Calculate the accuracy
         print(f'Accuracy of the KNN classifier with k={k}: {accuracy:.3f}')
-        self.plotter.plot_data(x_train, y_train, x_test, y_test, k, self.classifier)
+        self.plotter.plot_data(x_train, y_train, x_test, y_test, k, self.classifier)    # Plot the data
 
     # Method to get integer input from the user with custom prompt
     def get_integer_input(self, prompt):
-        while True:
+        while True: # Loop until a valid integer is entered
             try:
                 value = int(input(prompt))
                 if value <= 0:
@@ -214,6 +217,7 @@ class HomeScreen:
                     return  # Error handling, stop execution if there was an issue
                 accuracies.append(mean_accuracy)
 
+            # Plot the accuracy for each k
             self.plotter.plot_accuracy(k_range, accuracies)
             best_k = k_range[np.argmax(accuracies)]
             print(f'Optimal k found to be {best_k} with an accuracy of {max(accuracies):.3f}')
