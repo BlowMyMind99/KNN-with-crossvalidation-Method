@@ -1,6 +1,7 @@
 # In this project, I am implementing a KNN Classifier to classify the Iris data. It should be selected via the console
 # whether (1.) an exemplary run of the dataset should be carried out, or whether (2.) a cross-validation should be
 # carried out to find the optimal k-range.
+
 # For (1.) the desired K parameter should be entered via the console. Then the programm should output the accuracy of
 # the algorithm and plot a diagram in which all not correctly classified data points are marked red.
 
@@ -27,11 +28,18 @@ class KNNClassifier:
 
     # Method to load a csv file
     def load_csv_file(self, filename):
-        with open(filename, 'r') as file:
-            csv_reader = csv.reader(file)
-            next(csv_reader)                # skip the header
-            dataset = list(csv_reader)
-        return dataset
+        try:
+            with open(filename, 'r') as file:
+                csv_reader = csv.reader(file)
+                next(csv_reader)  # skip the header
+                dataset = list(csv_reader)
+            return dataset
+        except FileNotFoundError:
+            print(f"Die Datei '{filename}' wurde nicht gefunden.")
+            return None
+        except Exception as e:
+            print(f"Ein Fehler ist aufgetreten beim Lesen der Datei: {e}")
+            return None
 
     # Method to split the dataset into training and testing sets
     def split_data(self, dataset, train_ratio):
@@ -50,7 +58,9 @@ class KNNClassifier:
         return x, y
 
     # Method for saving the training data in class and normalizing the x_data
-    # Chose min-max normalization to normalize the data in the range of 0 to 1
+    # Chose min-max normalization over standardisation to normalize the data in the range of 0 to 1
+    # Standardisation would be another option, but it would be more complex to implement and normalization
+    # is just fine for this dataset
     def train_data(self, x_train, y_train):
         self.x_min = x_train.min(axis=0)
         self.x_max = x_train.max(axis=0)
@@ -59,10 +69,10 @@ class KNNClassifier:
 
     # Method to predict the class of the query data
     def predict(self, x_query):
-        x_query = (x_query - self.x_min) / (self.x_max - self.x_min)
+        x_query = (x_query - self.x_min) / (self.x_max - self.x_min)    # normalize the test data
         dist = np.sqrt(np.sum((self.x_train - x_query) ** 2, axis=1))
-        k_nearest = np.argsort(dist)[:self.k]
-        most_common = np.bincount(self.y_train[k_nearest]).argmax()
+        k_nearest = np.argsort(dist)[:self.k]   # sorting the k nearest neighbors by distance
+        most_common = np.bincount(self.y_train[k_nearest]).argmax() # majority vote to get the class of the query data
         return most_common
 
     # Method to calculate the accuracy of the algorithm
@@ -70,6 +80,25 @@ class KNNClassifier:
         correct = sum(self.predict(x_test[i]) == y_test[i] for i in range(len(x_test)))
         accuracy = correct / len(y_test)
         return accuracy
+
+    def perform_cross_validation(self, dataset, k, iterations):
+        current_accuracies = []
+
+        for _ in range(iterations):
+                train_set, test_set = self.split_data(dataset, train_ratio=0.7)
+                x_train, y_train = self.convert_to_numpy_arrays(train_set)
+                x_test, y_test = self.convert_to_numpy_arrays(test_set)
+
+                if x_train is None or y_train is None or x_test is None or y_test is None:
+                    print("Error converting dataset to numpy arrays.")
+                    return None
+
+                self.train_data(x_train, y_train)
+                accuracy = self.calculate_accuracy(x_test, y_test)
+                current_accuracies.append(accuracy)
+
+        mean_accuracy = np.mean(current_accuracies)
+        return mean_accuracy
 
 class Plot:
     def __init__(self, classifier):
@@ -132,12 +161,12 @@ class HomeScreen:
         print('1. Run the KNN Classifier with a specific k')
         print('2. Perform cross-validation to find the optimal k')
         print('3. Exit')
-        option = input('Please enter 1, 2 or 3: ')
+        option = self.get_integer_input('Please enter 1, 2 or 3: ')
         return option
 
     # Method to run the classifier with a specific k
     def run_classifier(self, dataset):
-        k = int(input('Enter the value of k: '))
+        k = self.get_integer_input('Enter the value of k: ')
         self.classifier.k = k  # Update the k value in classifier
         train_set, test_set = self.classifier.split_data(dataset, train_ratio=0.7)
         x_train, y_train = self.classifier.convert_to_numpy_arrays(train_set)
@@ -147,29 +176,49 @@ class HomeScreen:
         print(f'Accuracy of the KNN classifier with k={k}: {accuracy:.3f}')
         self.plotter.plot_data(x_train, y_train, x_test, y_test, k, self.classifier)
 
+    # Method to get integer input from the user with custom prompt
+    def get_integer_input(self, prompt):
+        while True:
+            try:
+                value = int(input(prompt))
+                if value <= 0:
+                    print("Please enter a positive integer.")
+                else:
+                    return value
+            except ValueError:
+                print("Please enter a valid integer.")
+
     # Method to perform cross-validation to find the optimal k
-    def cross_validation(self, dataset):
-        k_start = int(input('Enter the start of k range: '))
-        k_end = int(input('Enter the end of k range: '))
-        iterations = int(input('Enter the number of iterations for cross-validation: '))
-        accuracies = []
-        k_range = range(k_start, k_end + 1)
+    def run_cross_validation(self, dataset):
+        try:
+            # Get the parameters for cross-validation
+            k_start = self.get_integer_input('Enter the start of k range: ')
+            k_end = self.get_integer_input('Enter the end of k range: ')
+            if k_start >= k_end:
+                print("Start of k range must be less than end of k range.")
+                return
 
-        for k in k_range:
-            current_accuracies = []
-            for _ in range(iterations):
-                train_set, test_set = self.classifier.split_data(dataset, train_ratio=0.7)
-                x_train, y_train = self.classifier.convert_to_numpy_arrays(train_set)
-                x_test, y_test = self.classifier.convert_to_numpy_arrays(test_set)
-                self.classifier.train_data(x_train, y_train)
-                accuracy = self.classifier.calculate_accuracy(x_test, y_test)
-                current_accuracies.append(accuracy)
-            mean_accuracy = np.mean(current_accuracies)
-            accuracies.append(mean_accuracy)
+            iterations = self.get_integer_input('Enter the number of iterations for cross-validation: ')
+            if iterations <= 0:
+                print("Number of iterations must be greater than zero.")
+                return
 
-        self.plotter.plot_accuracy(k_range, accuracies)
-        best_k = k_range[accuracies.index(max(accuracies))]
-        print(f'Optimal k found to be {best_k} with an accuracy of {max(accuracies):.3f}')
+            accuracies = []
+            k_range = range(k_start, k_end + 1)
+
+            # Perform cross-validation for each k in the range
+            for k in k_range:
+                mean_accuracy = self.classifier.perform_cross_validation(dataset, k, iterations)
+                if mean_accuracy is None:
+                    print("An error occurred during cross-validation.")
+                    return  # Error handling, stop execution if there was an issue
+                accuracies.append(mean_accuracy)
+
+            self.plotter.plot_accuracy(k_range, accuracies)
+            best_k = k_range[np.argmax(accuracies)]
+            print(f'Optimal k found to be {best_k} with an accuracy of {max(accuracies):.3f}')
+        except Exception as e:
+            print(f"An unexpected error occurred during cross-validation: {e}")
 
 # ----------------------------------------------------------------------------------------------------------------------
 # 3. Define main function
@@ -183,14 +232,14 @@ def main():
 
     # Structure of program-interface
     option = ''
-    while option != '3':
+    while option != 3:
         option = home_screen.welcome_message()
         match option:
-            case '1':
+            case 1:
                 home_screen.run_classifier(dataset)
-            case '2':
-                home_screen.cross_validation(dataset)
-            case '3':
+            case 2:
+                home_screen.run_cross_validation(dataset)
+            case 3:
                 print('Goodbye!')
             case _:
                 print('Invalid option. Please select 1, 2 or 3')
